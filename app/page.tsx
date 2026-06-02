@@ -1,65 +1,115 @@
-import Image from "next/image";
+import { getDb } from '@/lib/db'
+import { format, isToday, isTomorrow, parseISO } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import Link from 'next/link'
+import SyncButton from '@/components/SyncButton'
 
-export default function Home() {
+export const dynamic = 'force-dynamic'
+
+function getStats() {
+  const db = getDb()
+  const today = format(new Date(), 'yyyy-MM-dd')
+  const monthStart = format(new Date(), 'yyyy-MM-01')
+  const monthEnd = format(new Date(), 'yyyy-MM-31')
+
+  const properties = db.prepare('SELECT COUNT(*) as count FROM properties WHERE active = 1').get() as { count: number }
+  const checkins = db.prepare(`SELECT r.*, p.name as property_name FROM reservations r JOIN properties p ON r.property_id = p.id WHERE r.checkin_date = ? AND r.status = 'confirmed'`).all(today)
+  const checkouts = db.prepare(`SELECT r.*, p.name as property_name FROM reservations r JOIN properties p ON r.property_id = p.id WHERE r.checkout_date = ? AND r.status = 'confirmed'`).all(today)
+  const monthRevenue = db.prepare(`SELECT SUM(total_revenue) as total FROM reservations WHERE status != 'cancelled' AND checkin_date >= ? AND checkin_date <= ?`).get(monthStart, monthEnd) as { total: number }
+  const upcoming = db.prepare(`SELECT r.*, p.name as property_name FROM reservations r JOIN properties p ON r.property_id = p.id WHERE r.checkin_date > ? AND r.status = 'confirmed' ORDER BY r.checkin_date ASC LIMIT 5`).all(today)
+
+  return { properties: properties.count, checkins, checkouts, monthRevenue: monthRevenue?.total || 0, upcoming }
+}
+
+export default function Dashboard() {
+  const { properties, checkins, checkouts, monthRevenue, upcoming } = getStats()
+  const todayLabel = format(new Date(), 'EEEE d MMMM yyyy', { locale: fr })
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--violet)' }}>Dashboard</h1>
+          <p style={{ color: 'var(--violet-medium)', fontSize: '0.9rem', textTransform: 'capitalize' }}>{todayLabel}</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <SyncButton />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+        {[
+          { label: 'Biens actifs', value: properties, icon: '🏡', color: 'var(--violet)' },
+          { label: "Check-ins aujourd'hui", value: checkins.length, icon: '🔑', color: checkins.length > 0 ? '#9B06D4' : '#94a3b8' },
+          { label: "Check-outs aujourd'hui", value: checkouts.length, icon: '🧹', color: checkouts.length > 0 ? '#06B6D4' : '#94a3b8' },
+          { label: 'Revenus ce mois', value: `${monthRevenue.toFixed(0)} €`, icon: '💶', color: '#166534' },
+        ].map(k => (
+          <div key={k.label} className="card" style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.8rem', marginBottom: 8 }}>{k.icon}</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: k.color }}>{k.value}</div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+        <div className="card">
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--violet)', marginBottom: 16 }}>⚡ Alertes du jour</h2>
+          {checkins.length === 0 && checkouts.length === 0 ? (
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Aucune arrivée ni départ aujourd&apos;hui</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {(checkouts as Record<string, string>[]).map(r => (
+                <div key={r.id} style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, borderLeft: '3px solid #22c55e' }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>🧹 Départ — {r.property_name}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{r.guest_name} · Notifier le ménage</div>
+                </div>
+              ))}
+              {(checkins as Record<string, string>[]).map(r => (
+                <div key={r.id} style={{ padding: '10px 14px', background: '#eff6ff', borderRadius: 8, borderLeft: '3px solid #3b82f6' }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>🔑 Arrivée — {r.property_name}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{r.guest_name} · Code : {r.lock_code}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </main>
+
+        <div className="card">
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--violet)', marginBottom: 16 }}>📅 Prochaines arrivées</h2>
+          {upcoming.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 24 }}>
+              <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 12 }}>Aucune réservation à venir</p>
+              <Link href="/reservations/new" className="btn-primary" style={{ fontSize: '0.85rem' }}>
+                + Ajouter une réservation
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {(upcoming as Record<string, string>[]).map(r => {
+                const date = parseISO(r.checkin_date)
+                const label = isToday(date) ? "Aujourd'hui" : isTomorrow(date) ? 'Demain' : format(date, 'd MMM', { locale: fr })
+                return (
+                  <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--lavender)' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{r.guest_name}</div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{r.property_name} · {r.nights} nuit{parseInt(r.nights) > 1 ? 's' : ''}</div>
+                    </div>
+                    <span className="badge badge-purple">{label}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {properties === 0 && (
+        <div className="card" style={{ marginTop: 24, textAlign: 'center', padding: 40 }}>
+          <div style={{ fontSize: '3rem', marginBottom: 12 }}>🏡</div>
+          <h2 style={{ color: 'var(--violet)', marginBottom: 8 }}>Commencez par ajouter un bien</h2>
+          <p style={{ color: '#64748b', marginBottom: 20, fontSize: '0.9rem' }}>StayPilot gérera automatiquement vos réservations, messages et notifications ménage.</p>
+          <Link href="/properties/new" className="btn-primary">+ Ajouter mon premier bien</Link>
+        </div>
+      )}
     </div>
-  );
+  )
 }
