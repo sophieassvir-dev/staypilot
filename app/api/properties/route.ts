@@ -13,8 +13,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const result = db.prepare(`
     INSERT INTO properties (name, address, city, platforms, max_guests, wifi_name, wifi_password,
-      checkin_time, checkout_time, cleaner_email, cleaner_name, owner_name, owner_email, commission_rate, notes, ical_url, guide_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      checkin_time, checkout_time, cleaner_email, cleaner_name, owner_name, owner_email, commission_rate, notes, ical_url, ical_url_booking, guide_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     body.name, body.address, body.city, body.platforms || 'airbnb',
     body.max_guests || 2, body.wifi_name || null, body.wifi_password || null,
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     body.cleaner_email || null, body.cleaner_name || null,
     body.owner_name || null, body.owner_email || null,
     body.commission_rate || 20, body.notes || null,
-    body.ical_url || null, body.guide_url || null
+    body.ical_url || null, body.ical_url_booking || null, body.guide_url || null
   )
   const id = result.lastInsertRowid as number
   seedDefaultTemplates(id)

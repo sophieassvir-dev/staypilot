@@ -9,7 +9,7 @@ export default function NewPropertyPage() {
     name: '', address: '', city: '', max_guests: 2,
     wifi_name: '', wifi_password: '', checkin_time: '16:00', checkout_time: '11:00',
     cleaner_name: '', cleaner_email: '', owner_name: '', owner_email: '',
-    commission_rate: 20, platforms: 'airbnb', notes: '', ical_url: '', guide_url: '',
+    commission_rate: 20, platforms: 'airbnb', notes: '', ical_url: '', ical_url_booking: '', guide_url: '',
   })
 
   const handle = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -96,8 +96,11 @@ export default function NewPropertyPage() {
             Sur Airbnb : Annonce → Disponibilités → Exporter le calendrier → Copier le lien iCal
           </p>
           {field('URL iCal Airbnb', 'ical_url', 'url', false, 'https://www.airbnb.fr/calendar/ical/...')}
+          <div style={{ marginTop: 12 }}>
+            {field('URL iCal Booking.com', 'ical_url_booking', 'url', false, 'https://ical.booking.com/v1/export?t=...')}
+          </div>
           <p style={{ fontSize: '0.78rem', color: '#9B06D4', marginTop: 8 }}>
-            ✅ StayPilot synchronisera vos réservations automatiquement toutes les 15 minutes
+            ✅ StayPilot synchronisera vos réservations automatiquement
           </p>
         </div>
 
