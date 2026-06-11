@@ -20,5 +20,5 @@ cpu_kind = "shared"
 cpus = 1
 
 [mounts]
-source = "staypilot_data"
+source = "data"
 destination = "/data"
