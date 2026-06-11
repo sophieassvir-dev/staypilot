@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 
 const DB_PATH = process.env.NODE_ENV === 'production'
-  ? '/tmp/staypilot.db'
+  ? '/data/staypilot.db'
   : path.join(process.cwd(), 'data', 'staypilot.db')
 
 let db: Database.Database | null = null
